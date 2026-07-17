@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import Classroom from './pages/Classroom';
 import Resources from './pages/Resources';
 import Auth from './pages/Auth';
+import ConfirmEmail from './pages/ConfirmEmail';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 
@@ -141,6 +142,7 @@ export default function App() {
               ) : <Navigate to="/" />
             } 
           />
+          <Route path="/confirm-email" element={<ConfirmEmail />} />
         </Routes>
       </main>
       <Footer />
