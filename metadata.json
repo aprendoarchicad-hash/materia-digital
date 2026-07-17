@@ -1,0 +1,6 @@
+{
+  "name": "Materia Digital",
+  "description": "Plataforma de academia en línea para arquitectos, ingenieros y constructores (BIM, CAD).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

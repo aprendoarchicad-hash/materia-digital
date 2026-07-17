@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=Space+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-ink bg-bg font-sans min-h-screen flex flex-col;
+    background-image: linear-gradient(rgba(29, 24, 24, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(29, 24, 24, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display uppercase tracking-tight;
+  }
+}
+
+@layer components {
+  .container-custom {
+    @apply w-full max-w-[1400px] mx-auto px-6 md:px-16;
+  }
+  
+  .btn-primary {
+    @apply bg-accent text-bg px-8 py-4 font-bold uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-50;
+  }
+
+  .btn-outline {
+    @apply border-2 border-ink text-ink px-8 py-4 font-bold uppercase tracking-widest transition-all hover:bg-ink hover:text-bg;
+  }
+
+  .input-field {
+    @apply w-full bg-white border-2 border-ink p-4 font-mono focus:outline-none focus:ring-2 focus:ring-accent/20;
+  }
+
+  .label-brutalist {
+    @apply text-[10px] font-bold uppercase tracking-[0.2em] text-ink block mb-2;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F7F4;
+}
+::-webkit-scrollbar-thumb {
+  background: #1D1818;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
