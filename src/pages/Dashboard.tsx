@@ -6,13 +6,14 @@ import { Link } from 'react-router-dom';
 
 export default function Dashboard({ profile }: { profile: Profile | null }) {
   const [enrollments, setEnrollments] = useState<(Enrollment & { courses: Course, certificates: any[] })[]>([]);
+  const [submissions, setSubmissions] = useState<Record<string, any>>({});
+  const [surveys, setSurveys] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchEnrollments() {
+    async function fetchData() {
       if (!profile) return;
       try {
-        console.log('Fetching enrollments for student:', profile.id);
         const { data, error } = await supabase
           .from('enrollments')
           .select(`
@@ -23,41 +24,49 @@ export default function Dashboard({ profile }: { profile: Profile | null }) {
           .eq('student_id', profile.id);
         
         if (error) throw error;
-        console.log('Enrollments data received:', data);
         
-        // Debug: Fetch certificates directly to check RLS
-        const { data: directCerts, error: certError } = await supabase.from('certificates').select('*');
-        console.log('Direct certificates fetch (debug):', { data: directCerts, error: certError });
-
         if (data) {
           setEnrollments(data as any);
-          data.forEach(e => {
-            console.log(`Enrollment for ${e.courses?.title || 'unknown'}:`, {
-              id: e.id,
-              certificates: e.certificates,
-              isCertArray: Array.isArray(e.certificates)
-            });
-          });
         }
+
+        // Fetch submissions and surveys to filter certificates
+        const [subsRes, survsRes] = await Promise.all([
+          supabase.from('course_exam_submissions').select('*').eq('student_id', profile.id),
+          supabase.from('course_surveys').select('*').eq('student_id', profile.id)
+        ]);
+
+        if (subsRes.data) {
+          const subsMap = subsRes.data.reduce((acc: any, s: any) => ({ ...acc, [s.course_id]: s }), {});
+          setSubmissions(subsMap);
+        }
+        if (survsRes.data) {
+          const survsMap = survsRes.data.reduce((acc: any, s: any) => ({ ...acc, [s.course_id]: s }), {});
+          setSurveys(survsMap);
+        }
+
       } catch (err) {
-        console.error('Error fetching enrollments/certificates:', err);
+        console.error('Error fetching dashboard data:', err);
       } finally {
         setLoading(false);
       }
     }
-    fetchEnrollments();
+    fetchData();
   }, [profile]);
 
   const certificates = enrollments
     .filter(e => {
       const certs = e.certificates;
-      if (!certs) return false;
-      if (Array.isArray(certs)) return certs.length > 0;
-      return true; // It's an object
+      if (!certs || certs.length === 0) return false;
+      
+      const sub = submissions[e.course_id];
+      const surv = surveys[e.course_id];
+      
+      // Certificate is ONLY visible if passed exam AND filled survey
+      return sub?.passed && surv;
     })
     .map(e => {
       const cert = Array.isArray(e.certificates) ? e.certificates[0] : e.certificates;
-      const course = Array.isArray(e.courses) ? e.courses[0] : e.courses;
+      const course = e.courses;
       return {
         ...cert,
         course_title: course?.title || 'Curso'

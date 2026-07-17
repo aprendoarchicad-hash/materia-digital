@@ -1,13 +1,15 @@
-import { motion } from 'motion/react';
-import { ChevronRight, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ChevronRight, ArrowRight, Star, ChevronLeft, Quote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase, type Course } from '../lib/supabase';
-import { formatPrice } from '../lib/utils';
+import { formatPrice, cn } from '../lib/utils';
 
 export default function Landing() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [surveys, setSurveys] = useState<any[]>([]);
+  const [currentSurveyIndex, setCurrentSurveyIndex] = useState(0);
 
   const [stats, setStats] = useState({ alumnos: 0, cursos: 0, certificados: 0 });
 
@@ -24,6 +26,17 @@ export default function Landing() {
       
       if (!coursesError && coursesData) {
         setCourses(coursesData);
+      }
+
+      // Fetch Surveys with Profile data
+      const { data: surveysData } = await supabase
+        .from('course_surveys')
+        .select('*, profiles(full_name, avatar_url), courses(title)')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (surveysData) {
+        setSurveys(surveysData);
       }
 
       // Fetch Stats
@@ -47,6 +60,14 @@ export default function Landing() {
     }
     fetchData();
   }, []);
+
+  const nextSurvey = () => {
+    setCurrentSurveyIndex((prev) => (prev + 1) % surveys.length);
+  };
+
+  const prevSurvey = () => {
+    setCurrentSurveyIndex((prev) => (prev - 1 + surveys.length) % surveys.length);
+  };
 
   return (
     <div className="bg-bg text-ink">
@@ -154,6 +175,85 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Testimonials Carousel */}
+      {surveys.length > 0 && (
+        <section className="py-32 border-t-2 border-ink bg-ink text-bg overflow-hidden">
+          <div className="container-custom">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-24 gap-8">
+              <div className="max-w-2xl">
+                <div className="label-brutalist mb-4 text-accent">RESEÑAS_SISTEMA</div>
+                <h2 className="text-6xl md:text-8xl leading-[0.85] text-white">Lo que dicen <br />nuestros alumnos</h2>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={prevSurvey}
+                  className="w-16 h-16 border-2 border-bg/30 rounded-full flex items-center justify-center text-bg hover:bg-bg hover:text-ink transition-all active:scale-95"
+                >
+                  <ChevronLeft size={32} />
+                </button>
+                <button 
+                  onClick={nextSurvey}
+                  className="w-16 h-16 border-2 border-bg/30 rounded-full flex items-center justify-center text-bg hover:bg-bg hover:text-ink transition-all active:scale-95"
+                >
+                  <ChevronRight size={32} />
+                </button>
+              </div>
+            </div>
+
+            <div className="relative h-[400px] md:h-[300px]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSurveyIndex}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="absolute inset-0 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-12 items-center"
+                >
+                  <div className="space-y-6">
+                    <div className="flex gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star 
+                          key={i} 
+                          size={24} 
+                          className={cn(
+                            "transition-colors",
+                            i < surveys[currentSurveyIndex].rating ? "text-accent fill-accent" : "text-bg/10"
+                          )} 
+                        />
+                      ))}
+                    </div>
+                    <div>
+                      <h4 className="text-3xl font-bold leading-tight">{surveys[currentSurveyIndex].profiles?.full_name}</h4>
+                      <p className="label-brutalist opacity-50 mt-2">Curso: {surveys[currentSurveyIndex].courses?.title}</p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <Quote size={80} className="absolute -top-12 -left-12 opacity-10 text-accent" />
+                    <p className="text-2xl md:text-4xl leading-tight font-medium italic relative z-10">
+                      "{surveys[currentSurveyIndex].comment || 'Sin comentarios adicionales.'}"
+                    </p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            
+            <div className="mt-24 flex justify-center gap-2">
+              {surveys.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSurveyIndex(i)}
+                  className={cn(
+                    "w-12 h-1 bg-bg/20 transition-all",
+                    i === currentSurveyIndex && "bg-accent w-24"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FAQ Section */}
       <section className="py-32 border-t-2 border-ink bg-white">

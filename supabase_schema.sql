@@ -343,8 +343,20 @@ CREATE TABLE IF NOT EXISTS public.course_exam_submissions (
   UNIQUE(student_id, course_id)
 );
 
+-- 6. ENCUESTAS DE SATISFACCIÓN
+CREATE TABLE IF NOT EXISTS public.course_surveys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(student_id, course_id)
+);
+
 ALTER TABLE public.course_exams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.course_exam_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_surveys ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "exams_select_enrolled" ON public.course_exams FOR SELECT USING (
   public.is_admin() OR EXISTS (SELECT 1 FROM public.enrollments WHERE course_id = course_exams.course_id AND student_id = auth.uid())
@@ -353,8 +365,13 @@ CREATE POLICY "exams_admin_all" ON public.course_exams FOR ALL USING (public.is_
 
 CREATE POLICY "exam_submissions_select_own" ON public.course_exam_submissions FOR SELECT USING (student_id = auth.uid() OR public.is_admin());
 CREATE POLICY "exam_submissions_insert_own" ON public.course_exam_submissions FOR INSERT WITH CHECK (student_id = auth.uid());
+CREATE POLICY "exam_submissions_update_own" ON public.course_exam_submissions FOR UPDATE USING (student_id = auth.uid()) WITH CHECK (student_id = auth.uid());
 
--- 6. SEMILLA
+CREATE POLICY "surveys_select_public" ON public.course_surveys FOR SELECT USING (true);
+CREATE POLICY "surveys_insert_own" ON public.course_surveys FOR INSERT WITH CHECK (student_id = auth.uid());
+CREATE POLICY "surveys_update_own" ON public.course_surveys FOR UPDATE USING (student_id = auth.uid()) WITH CHECK (student_id = auth.uid());
+
+-- 7. SEMILLA
 INSERT INTO public.site_settings (id, hero_title, hero_subtitle)
 VALUES (1, 'Aprende Software para Arquitectura e Ingeniería', 'Cursos especializados en BIM, CAD y nuevas tecnologías.')
 ON CONFLICT (id) DO NOTHING;

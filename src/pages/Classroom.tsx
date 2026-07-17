@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase, type Course, type Module, type Lesson, type Profile } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Play, CheckCircle2, Download, Menu, X, ArrowRight, Award, HelpCircle } from 'lucide-react';
+import { ChevronLeft, Play, CheckCircle2, Download, Menu, X, ArrowRight, Award, HelpCircle, Star } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Classroom() {
@@ -28,6 +28,12 @@ export default function Classroom() {
   const [examActive, setExamActive] = useState(false);
   const [examAnswers, setExamAnswers] = useState<number[]>([]);
   const [examResult, setExamResult] = useState<{score: number, passed: boolean} | null>(null);
+
+  const [surveySubmission, setSurveySubmission] = useState<any>(null);
+  const [surveyActive, setSurveyActive] = useState(false);
+  const [surveyRating, setSurveyRating] = useState(0);
+  const [surveyComment, setSurveyComment] = useState('');
+  const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -93,6 +99,16 @@ export default function Classroom() {
             
             setGlobalExamSubmission(submission);
           }
+
+          // Fetch Survey Submission
+          const { data: surveyData } = await supabase
+            .from('course_surveys')
+            .select('*')
+            .eq('course_id', courseId)
+            .eq('student_id', user.id)
+            .maybeSingle();
+          
+          setSurveySubmission(surveyData);
         }
       }
     }
@@ -207,18 +223,50 @@ export default function Classroom() {
       setExamResult({ score, passed });
       setExamActive(false);
       
-      // If passed, maybe update enrollment status to completed? 
-      // (The certificate logic depends on it in some apps)
       if (passed) {
         await supabase.from('enrollments')
           .update({ status: 'completed' })
           .eq('student_id', profile.id)
           .eq('course_id', courseId);
+        
+        // After passing, show survey if not done
+        if (!surveySubmission) {
+          setSurveyActive(true);
+        }
       }
     } else {
       alert('Error al enviar el examen: ' + error.message);
     }
   };
+
+  const handleSurveySubmit = async () => {
+    if (!profile || !courseId || surveyRating === 0) return;
+    setIsSubmittingSurvey(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('course_surveys')
+        .upsert({
+          student_id: profile.id,
+          course_id: courseId,
+          rating: surveyRating,
+          comment: surveyComment
+        }, { onConflict: 'student_id,course_id' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setSurveySubmission(data);
+      setSurveyActive(false);
+      alert('¡Gracias por tus comentarios! Ahora puedes descargar tu certificado.');
+    } catch (err: any) {
+      alert('Error al enviar la encuesta: ' + err.message);
+    } finally {
+      setIsSubmittingSurvey(false);
+    }
+  };
+
+  const canSeeCertificate = globalExamSubmission?.passed && surveySubmission;
 
   if (loading) {
     return (
@@ -258,23 +306,26 @@ export default function Classroom() {
                           key={lesson.id}
                           onClick={() => {
                             setCurrentLesson(lesson);
+                            setExamActive(false);
+                            setSurveyActive(false);
+                            setQuizActive(false);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
                           className={cn(
                             "w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all",
-                            currentLesson?.id === lesson.id 
+                            currentLesson?.id === lesson.id && !examActive && !surveyActive
                               ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-100" 
                               : "text-slate-500 hover:bg-slate-100/50"
                           )}
                         >
                           <div className={cn(
                             "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center relative",
-                            currentLesson?.id === lesson.id ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-400"
+                            currentLesson?.id === lesson.id && !examActive && !surveyActive ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-400"
                           )}>
                             {allLessonProgress[lesson.id] ? (
                               <CheckCircle2 size={14} className="text-emerald-500" />
                             ) : (
-                              <Play size={14} fill={currentLesson?.id === lesson.id ? "currentColor" : "none"} />
+                              <Play size={14} fill={currentLesson?.id === lesson.id && !examActive && !surveyActive ? "currentColor" : "none"} />
                             )}
                           </div>
                           <span className="text-sm font-semibold line-clamp-2">{lesson.title}</span>
@@ -291,6 +342,7 @@ export default function Classroom() {
                         setExamActive(true);
                         setCurrentLesson(null);
                         setQuizActive(false);
+                        setSurveyActive(false);
                       }}
                       className={cn(
                         "w-full flex items-center gap-3 p-4 rounded-2xl text-left transition-all border-2",
@@ -319,6 +371,43 @@ export default function Classroom() {
                     </button>
                   </div>
                 )}
+
+                {globalExamSubmission?.passed && (
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setSurveyActive(true);
+                        setExamActive(false);
+                        setCurrentLesson(null);
+                        setQuizActive(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-4 rounded-2xl text-left transition-all border-2",
+                        surveyActive 
+                          ? "bg-blue-600 text-white border-blue-600 shadow-lg" 
+                          : surveySubmission
+                            ? "bg-blue-50 text-blue-700 border-blue-100"
+                            : "bg-white text-slate-900 border-slate-100 hover:border-blue-200"
+                      )}
+                    >
+                      <div className={cn(
+                        "shrink-0 w-10 h-10 rounded-xl flex items-center justify-center",
+                        surveyActive ? "bg-white/20" : "bg-blue-100 text-blue-600"
+                      )}>
+                        <Star size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold">Encuesta de Satisfacción</p>
+                        <p className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest",
+                          surveyActive ? "text-blue-100" : "text-slate-400"
+                        )}>
+                          {surveySubmission ? "Completada" : "Requerida"}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.aside>
           )}
@@ -341,7 +430,68 @@ export default function Classroom() {
                 <ChevronLeft size={16} /> Volver a mi panel
               </Link>
 
-              {examActive && globalExam ? (
+              {surveyActive ? (
+                <div className="animate-in slide-in-from-bottom duration-700">
+                  <header className="mb-12">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+                        <Star size={28} />
+                      </div>
+                      <h1 className="text-4xl font-black text-slate-900 tracking-tight">Tu Opinión es Importante</h1>
+                    </div>
+                    <p className="text-slate-500 font-medium text-lg">Queremos saber qué te pareció el curso para seguir mejorando la experiencia de aprendizaje.</p>
+                  </header>
+
+                  <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 lg:p-16 shadow-sm mb-12">
+                    <div className="space-y-12">
+                      <div className="text-center">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-6">¿Cómo calificarías este curso?</h3>
+                        <div className="flex justify-center gap-4">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              onClick={() => setSurveyRating(star)}
+                              onMouseEnter={() => setSurveyRating(star)}
+                              className="transition-transform active:scale-90"
+                            >
+                              <Star 
+                                size={48} 
+                                className={cn(
+                                  "transition-colors",
+                                  star <= surveyRating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"
+                                )}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="block text-sm font-bold text-slate-900 uppercase tracking-widest text-center">Déjanos un comentario o testimonio</label>
+                        <textarea
+                          placeholder="Escribe tu experiencia aquí... ¿Qué fue lo que más te gustó? ¿Qué podríamos mejorar?"
+                          className="w-full p-6 bg-slate-50 border border-slate-100 rounded-2xl h-40 focus:outline-none focus:border-blue-500 transition-all text-slate-700 font-medium"
+                          value={surveyComment}
+                          onChange={(e) => setSurveyComment(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col items-center">
+                        <button
+                          disabled={surveyRating === 0 || isSubmittingSurvey}
+                          onClick={handleSurveySubmit}
+                          className="px-16 py-6 bg-blue-600 text-white rounded-[2rem] font-black text-xl hover:bg-blue-700 transition-all shadow-2xl shadow-blue-100 disabled:opacity-30 disabled:cursor-not-allowed mb-6 active:scale-[0.98]"
+                        >
+                          {isSubmittingSurvey ? "Enviando..." : "Enviar Encuesta"}
+                        </button>
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                          Al completar la encuesta se habilitará tu certificado automáticamente.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : examActive && globalExam ? (
                 <div className="animate-in slide-in-from-bottom duration-700">
                   <header className="mb-12">
                     <div className="flex items-center gap-3 mb-4">
@@ -433,11 +583,11 @@ export default function Classroom() {
                     {examResult.passed ? <Award size={64} /> : <HelpCircle size={64} />}
                   </div>
                   <h2 className="text-5xl font-black text-slate-900 mb-4 tracking-tight">
-                    {examResult.passed ? '¡Felicidades!' : 'Sigue intentando'}
+                    {examResult.passed ? '¡Examen Aprobado!' : 'Sigue intentando'}
                   </h2>
                   <p className="text-xl text-slate-500 font-medium mb-10">
                     {examResult.passed 
-                      ? `Has aprobado el examen global con un puntaje de ${examResult.score}%. Ya puedes descargar tu certificado.` 
+                      ? `Has aprobado el examen global con un puntaje de ${examResult.score}%. Solo queda un paso más para tu certificado.` 
                       : `Obtuviste un ${examResult.score}%. Necesitas al menos un ${globalExam.passing_score}% para aprobar.`}
                   </p>
                   <div className="flex gap-4 justify-center">
@@ -451,7 +601,18 @@ export default function Classroom() {
                     >
                       {examResult.passed ? 'Repetir Examen' : 'Intentar de nuevo'}
                     </button>
-                    {examResult.passed && certificate && (
+                    {examResult.passed && !surveySubmission && (
+                      <button 
+                        onClick={() => {
+                          setExamResult(null);
+                          setSurveyActive(true);
+                        }}
+                        className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2"
+                      >
+                        Llenar Encuesta <ArrowRight size={18} />
+                      </button>
+                    )}
+                    {examResult.passed && canSeeCertificate && certificate && (
                       <a 
                         href={certificate.certificate_url}
                         target="_blank"
@@ -490,7 +651,7 @@ export default function Classroom() {
                       </div>
                     </div>
                     <div className="shrink-0 flex gap-4">
-                      {certificate && (
+                      {canSeeCertificate && certificate && (
                         <a
                           href={certificate.certificate_url}
                           target="_blank"
@@ -627,6 +788,9 @@ export default function Classroom() {
                         <button 
                           onClick={() => {
                             setCurrentLesson(nextLesson);
+                            setExamActive(false);
+                            setSurveyActive(false);
+                            setQuizActive(false);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
                           className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all group"
