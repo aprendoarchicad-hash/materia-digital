@@ -302,7 +302,7 @@ CREATE POLICY "certificates_admin_all" ON public.certificates FOR ALL USING (pub
 CREATE POLICY "resources_select_enrolled" ON public.resources FOR SELECT USING (
   public.is_admin() OR course_id IS NULL OR EXISTS (SELECT 1 FROM public.enrollments WHERE course_id = resources.course_id AND student_id = auth.uid())
 );
-CREATE POLICY "resources_admin_all" ON public.resources FOR ALL USING (public.is_admin());
+CREATE POLICY "resources_admin_all" ON public.resources FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- POLÍTICAS DE QUIZZES
 CREATE POLICY "quizzes_select_enrolled" ON public.lesson_quizzes FOR SELECT USING (

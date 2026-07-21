@@ -219,7 +219,7 @@ export default function Landing() {
                           size={24} 
                           className={cn(
                             "transition-colors",
-                            i < surveys[currentSurveyIndex].rating ? "text-accent fill-accent" : "text-bg/10"
+                            i < surveys[currentSurveyIndex].rating ? "text-amber-500 fill-amber-500" : "text-bg/10"
                           )} 
                         />
                       ))}

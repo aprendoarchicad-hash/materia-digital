@@ -3,7 +3,7 @@ import { supabase, type Profile, type Course } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutDashboard, BookOpen, Users, Settings, Award, Plus, ExternalLink, BarChart3, X, Save, Trash2, FileText, Download, Link2 } from 'lucide-react';
 import { Link, Routes, Route, useLocation } from 'react-router-dom';
-import { formatPrice } from '../lib/utils';
+import { formatPrice, cn } from '../lib/utils';
 
 export default function AdminDashboard({ profile }: { profile: Profile | null }) {
   const location = useLocation();
@@ -912,11 +912,30 @@ function StudentsList({ courses }: { courses: Course[] }) {
   }
 
   async function fetchEnrollments(studentId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('enrollments')
-      .select('*, courses(title), certificates(certificate_url)')
+      .select(`
+        *,
+        courses(title),
+        certificates(certificate_url)
+      `)
       .eq('student_id', studentId);
-    if (data) setStudentEnrollments(data);
+    
+    if (data) {
+      // Fetch progress and exams separately for more detail
+      const [progressRes, examsRes] = await Promise.all([
+        supabase.from('lesson_progress').select('*, lessons(title)').eq('student_id', studentId),
+        supabase.from('course_exam_submissions').select('*').eq('student_id', studentId)
+      ]);
+
+      const enrichedEnrollments = data.map(enroll => ({
+        ...enroll,
+        quizzes: progressRes.data?.filter(p => p.course_id === enroll.course_id && p.quiz_score > 0) || [],
+        exam: examsRes.data?.find(e => e.course_id === enroll.course_id)
+      }));
+
+      setStudentEnrollments(enrichedEnrollments);
+    }
   }
 
   const handleAssignCourse = async () => {
@@ -963,10 +982,10 @@ function StudentsList({ courses }: { courses: Course[] }) {
     <div className="animate-in slide-in-from-right duration-500">
       <header className="mb-10">
         <h1 className="text-2xl font-bold text-slate-900">Gestor de Alumnos</h1>
-        <p className="text-slate-500 font-medium">Gestiona inscripciones, accesos y certificados.</p>
+        <p className="text-slate-500 font-medium">Gestiona inscripciones, monitorea el avance y asigna certificados.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8">
         <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-100">
@@ -993,7 +1012,7 @@ function StudentsList({ courses }: { courses: Course[] }) {
                       }}
                       className="text-slate-900 font-bold text-sm underline decoration-2 underline-offset-4"
                     >
-                      Gestionar Cursos
+                      Ver Detalle
                     </button>
                   </td>
                 </tr>
@@ -1002,25 +1021,64 @@ function StudentsList({ courses }: { courses: Course[] }) {
           </table>
         </div>
 
-        <div className="bg-white p-8 border border-slate-100 rounded-3xl shadow-sm h-fit sticky top-8">
+        <div className="bg-white p-8 border border-slate-100 rounded-3xl shadow-sm h-fit sticky top-8 max-h-[80vh] overflow-y-auto">
           {selectedStudent ? (
             <div className="space-y-8">
               <div>
                 <h3 className="font-bold text-slate-900 mb-1">{selectedStudent.full_name}</h3>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Inscripciones Activas</p>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Panel de Control de Alumno</p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Cursos y Desempeño</h4>
                 {studentEnrollments.length > 0 ? studentEnrollments.map((enroll) => (
-                  <div key={enroll.id} className="p-4 bg-slate-50 rounded-2xl space-y-3">
+                  <div key={enroll.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-700">{enroll.courses?.title}</span>
-                      <button onClick={() => handleRemoveEnrollment(enroll.id)} className="text-red-400 hover:text-red-600">
+                      <span className="font-bold text-slate-900">{enroll.courses?.title}</span>
+                      <button onClick={() => handleRemoveEnrollment(enroll.id)} className="text-red-400 hover:text-red-600 p-1" title="Quitar acceso">
                         <Trash2 size={16} />
                       </button>
                     </div>
-                    
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/50">
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
+                        <span className="text-slate-400">Progreso del curso</span>
+                        <span className="text-slate-900">{Math.round(enroll.progress_percent)}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-slate-900 transition-all duration-500" 
+                          style={{ width: `${enroll.progress_percent}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Evaluations */}
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="bg-white p-3 rounded-xl border border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Quizzes</p>
+                        <p className="text-sm font-bold text-slate-900">
+                          {enroll.quizzes?.length || 0} realizados
+                        </p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Examen Final</p>
+                        {enroll.exam ? (
+                          <div className="flex items-center justify-between">
+                            <span className={cn("text-sm font-bold", enroll.exam.passed ? "text-emerald-600" : "text-rose-600")}>
+                              {enroll.exam.score}%
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">{enroll.exam.passed ? 'APROBADO' : 'REPROBADO'}</span>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-bold text-slate-300">Pendiente</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Certificate Action */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-200/50">
                       <div className="flex items-center gap-2">
                         {(() => {
                           const cert = Array.isArray(enroll.certificates) ? enroll.certificates[0] : enroll.certificates;
@@ -1029,7 +1087,7 @@ function StudentsList({ courses }: { courses: Course[] }) {
                             <>
                               <Award size={14} className={hasCert ? 'text-emerald-500' : 'text-slate-300'} />
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {hasCert ? 'Certificado Asignado' : 'Sin Certificado'}
+                                {hasCert ? 'Certificado' : 'Sin Certificado'}
                               </span>
                             </>
                           );
@@ -1040,27 +1098,27 @@ function StudentsList({ courses }: { courses: Course[] }) {
                           const cert = Array.isArray(enroll.certificates) ? enroll.certificates[0] : enroll.certificates;
                           setEditingCert({ enrollment_id: enroll.id, url: cert?.certificate_url || '' });
                         }}
-                        className="text-[10px] font-bold text-slate-900 hover:underline"
+                        className="text-[10px] font-bold text-slate-900 hover:bg-slate-200 px-2 py-1 rounded transition-colors"
                       >
                         {(() => {
                           const cert = Array.isArray(enroll.certificates) ? enroll.certificates[0] : enroll.certificates;
-                          return cert ? 'Editar' : 'Asignar';
+                          return cert ? 'Gestionar' : 'Asignar';
                         })()}
                       </button>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-sm text-slate-400 italic">Sin cursos asignados.</p>
+                  <p className="text-sm text-slate-400 italic bg-slate-50 p-6 rounded-2xl text-center">Sin cursos asignados.</p>
                 )}
               </div>
 
               <div className="pt-8 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-4">Asignar nuevo curso</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-4">Inscribir en nuevo curso</label>
                 <div className="flex gap-2">
                   <select 
                     value={assigningCourseId}
                     onChange={(e) => setAssigningCourseId(e.target.value)}
-                    className="flex-grow px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-900"
+                    className="flex-grow px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-900 font-medium"
                   >
                     <option value="">Seleccionar curso...</option>
                     {courses.map(c => (
@@ -1070,7 +1128,7 @@ function StudentsList({ courses }: { courses: Course[] }) {
                   <button 
                     onClick={handleAssignCourse}
                     disabled={!assigningCourseId}
-                    className="p-2 bg-slate-900 text-white rounded-xl disabled:opacity-50"
+                    className="p-2 bg-slate-900 text-white rounded-xl disabled:opacity-50 hover:bg-slate-800 transition-all"
                   >
                     <Plus size={20} />
                   </button>
@@ -1078,9 +1136,10 @@ function StudentsList({ courses }: { courses: Course[] }) {
               </div>
             </div>
           ) : (
-            <div className="py-20 text-center">
-              <Users size={48} className="mx-auto text-slate-100 mb-4" />
-              <p className="text-slate-400 font-medium">Selecciona un alumno para gestionar sus accesos.</p>
+            <div className="py-24 text-center">
+              <Users size={48} className="mx-auto text-slate-100 mb-6" />
+              <h4 className="text-slate-900 font-bold mb-2">Gestor de Alumnos</h4>
+              <p className="text-slate-400 text-sm font-medium px-8">Selecciona un alumno de la lista para ver su avance detallado, notas de exámenes y gestionar sus certificados.</p>
             </div>
           )}
         </div>
@@ -1208,8 +1267,13 @@ function ResourcesManager({ courses }: { courses: Course[] }) {
 
   const handleDeleteResource = async (id: string) => {
     if (confirm('¿Eliminar este recurso?')) {
-      await supabase.from('resources').delete().eq('id', id);
-      fetchResources();
+      try {
+        const { error } = await supabase.from('resources').delete().eq('id', id);
+        if (error) throw error;
+        fetchResources();
+      } catch (err: any) {
+        alert('Error al eliminar recurso: ' + err.message);
+      }
     }
   };
 

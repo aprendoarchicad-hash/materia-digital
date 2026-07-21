@@ -458,7 +458,7 @@ export default function Classroom() {
                                 size={48} 
                                 className={cn(
                                   "transition-colors",
-                                  star <= surveyRating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"
+                                  star <= surveyRating ? "text-amber-500 fill-amber-500" : "text-slate-200"
                                 )}
                               />
                             </button>
