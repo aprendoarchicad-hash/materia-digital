@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase, type Profile, type Course, type Enrollment } from '../lib/supabase';
 import { motion } from 'motion/react';
-import { Book, PlayCircle, Clock, ChevronRight, Award, FileText, Download } from 'lucide-react';
+import { Book, PlayCircle, Clock, ChevronRight, Award, FileText, Download, Lock, Key, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard({ profile }: { profile: Profile | null }) {
@@ -9,6 +9,11 @@ export default function Dashboard({ profile }: { profile: Profile | null }) {
   const [submissions, setSubmissions] = useState<Record<string, any>>({});
   const [surveys, setSurveys] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -52,6 +57,33 @@ export default function Dashboard({ profile }: { profile: Profile | null }) {
     }
     fetchData();
   }, [profile]);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      alert('Las contraseñas no coinciden');
+      return;
+    }
+    if (newPassword.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      
+      setPasswordSuccess(true);
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(false), 5000);
+    } catch (err: any) {
+      alert('Error al actualizar contraseña: ' + err.message);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   const certificates = enrollments
     .filter(e => {
@@ -208,6 +240,74 @@ export default function Dashboard({ profile }: { profile: Profile | null }) {
           )}
         </section>
       )}
+
+      {/* Seguridad Section */}
+      <section className="mt-20">
+        <div className="flex items-center gap-2 mb-8">
+          <Lock className="text-slate-900" size={24} />
+          <h2 className="text-xl font-bold text-slate-900">Seguridad</h2>
+        </div>
+
+        <div className="bg-white p-8 lg:p-12 border border-slate-100 rounded-3xl shadow-sm max-w-2xl">
+          <div className="flex items-start gap-6 mb-10">
+            <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center shrink-0">
+              <Key size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 mb-1">Cambiar Contraseña</h3>
+              <p className="text-sm text-slate-500">Actualiza tu contraseña para mantener tu cuenta segura.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handlePasswordChange} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Nueva Contraseña</label>
+                <input 
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:border-slate-900 font-medium transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Confirmar Contraseña</label>
+                <input 
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:border-slate-900 font-medium transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
+              <button 
+                type="submit"
+                disabled={isUpdatingPassword}
+                className="w-full sm:w-auto px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
+              >
+                {isUpdatingPassword ? 'Actualizando...' : 'Actualizar Contraseña'}
+              </button>
+              
+              {passwordSuccess && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-2 text-emerald-500 font-bold text-sm"
+                >
+                  <CheckCircle2 size={16} />
+                  Contraseña actualizada correctamente
+                </motion.div>
+              )}
+            </div>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
