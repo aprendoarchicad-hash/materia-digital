@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   whatsapp_support TEXT,
   instagram_url TEXT,
   facebook_url TEXT,
+  linkedin_url TEXT,
+  youtube_url TEXT,
   logo_url TEXT,
   stats_manual JSONB DEFAULT '{"students": 0, "courses": 0, "certificates": 0}'::jsonb,
   faqs JSONB DEFAULT '[]'::jsonb,

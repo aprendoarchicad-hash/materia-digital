@@ -1196,14 +1196,50 @@ function SettingsManager() {
   }, []);
 
   async function fetchSettings() {
-    const { data } = await supabase.from('site_settings').select('*').eq('id', 1).single();
-    if (data) setSettings(data);
+    try {
+      const { data, error } = await supabase.from('site_settings').select('*').eq('id', 1).single();
+      if (error) throw error;
+      if (data) setSettings(data);
+    } catch (err: any) {
+      console.error('Error fetching settings:', err);
+    }
   }
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('site_settings').update(settings).eq('id', 1);
-    alert('Ajustes guardados');
+    if (!settings) return;
+
+    try {
+      // Remove id from update payload
+      const { id, ...updateData } = settings;
+      
+      // First attempt: try to update everything
+      const { error } = await supabase.from('site_settings').update(updateData).eq('id', 1);
+      
+      if (error) {
+        // If it fails with "column does not exist", try to save only the known columns
+        if (error.code === '42703') {
+          console.warn('Some columns missing, trying safe update...');
+          const safeData: any = {
+            whatsapp_support: settings.whatsapp_support,
+            instagram_url: settings.instagram_url,
+            facebook_url: settings.facebook_url,
+            logo_url: settings.logo_url
+          };
+          const { error: retryError } = await supabase.from('site_settings').update(safeData).eq('id', 1);
+          if (retryError) throw retryError;
+          alert('Ajustes guardados. Nota: Algunas redes sociales (LinkedIn/YouTube) requieren actualizar la base de datos.');
+        } else {
+          throw error;
+        }
+      } else {
+        alert('Ajustes guardados con éxito');
+      }
+      fetchSettings();
+    } catch (err: any) {
+      console.error('Error saving settings:', err);
+      alert('Error al guardar: ' + (err.message || 'Error desconocido'));
+    }
   };
 
   if (!settings) return null;
@@ -1213,17 +1249,86 @@ function SettingsManager() {
       <header className="mb-10">
         <h1 className="text-2xl font-bold text-slate-900">Configuración del Sitio</h1>
       </header>
-      <form onSubmit={handleSaveSettings} className="bg-white p-8 border border-slate-100 rounded-3xl shadow-sm space-y-6">
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">URL del Logo</label>
-          <input 
-            type="url"
-            value={settings.logo_url || ''}
-            onChange={e => setSettings({...settings, logo_url: e.target.value})}
-            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900"
-          />
+      <form onSubmit={handleSaveSettings} className="bg-white p-8 border border-slate-100 rounded-3xl shadow-sm space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2">Identidad</h3>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">URL del Logo</label>
+              <input 
+                type="url"
+                value={settings.logo_url || ''}
+                onChange={e => setSettings({...settings, logo_url: e.target.value})}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900"
+                placeholder="https://..."
+              />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2">Redes Sociales & Contacto</h3>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">WhatsApp de Soporte</label>
+              <input 
+                type="text"
+                value={settings.whatsapp_support || ''}
+                onChange={e => setSettings({...settings, whatsapp_support: e.target.value})}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900"
+                placeholder="+54 9 11 ..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Instagram</label>
+                <input 
+                  type="url"
+                  value={settings.instagram_url || ''}
+                  onChange={e => setSettings({...settings, instagram_url: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
+                  placeholder="https://instagram.com/..."
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Facebook</label>
+                <input 
+                  type="url"
+                  value={settings.facebook_url || ''}
+                  onChange={e => setSettings({...settings, facebook_url: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
+                  placeholder="https://facebook.com/..."
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">LinkedIn</label>
+                <input 
+                  type="url"
+                  value={settings.linkedin_url || ''}
+                  onChange={e => setSettings({...settings, linkedin_url: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
+                  placeholder="https://linkedin.com/in/..."
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">YouTube</label>
+                <input 
+                  type="url"
+                  value={settings.youtube_url || ''}
+                  onChange={e => setSettings({...settings, youtube_url: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
+                  placeholder="https://youtube.com/@..."
+                />
+              </div>
+            </div>
+          </div>
         </div>
-        <button type="submit" className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">Guardar Ajustes</button>
+
+        <div className="pt-6 border-t border-slate-100 flex justify-end">
+          <button type="submit" className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95">
+            Guardar Cambios
+          </button>
+        </div>
       </form>
     </div>
   );

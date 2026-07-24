@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase, type Profile } from '../../lib/supabase';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Instagram, Facebook, Linkedin, Youtube, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar({ profile, settings }: { profile: Profile | null; settings: any }) {
@@ -24,32 +24,62 @@ export default function Navbar({ profile, settings }: { profile: Profile | null;
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-12 font-mono text-xs font-bold tracking-widest">
-          <Link to="/" className="text-ink hover:underline">INICIO</Link>
-          <a href="#cursos" className="text-ink hover:underline">CURSOS</a>
-          {profile ? (
-            <div className="flex items-center gap-12">
+        <div className="hidden md:flex items-center gap-12">
+          <div className="flex items-center gap-8 font-mono text-xs font-bold tracking-widest border-r-2 border-ink/10 pr-8">
+            <Link to="/" className="text-ink hover:underline">INICIO</Link>
+            <a href="#cursos" className="text-ink hover:underline">CURSOS</a>
+            {profile ? (
+              <div className="flex items-center gap-8">
+                <Link 
+                  to={profile.role === 'admin' ? '/admin' : '/dashboard'} 
+                  className="text-ink hover:underline"
+                >
+                  MI_PANEL
+                </Link>
+                <button 
+                  onClick={handleSignOut}
+                  className="text-accent hover:underline"
+                >
+                  LOG_OUT
+                </button>
+              </div>
+            ) : (
               <Link 
-                to={profile.role === 'admin' ? '/admin' : '/dashboard'} 
-                className="text-ink hover:underline"
+                to="/auth" 
+                className="text-ink underline decoration-2 underline-offset-8"
               >
-                MI_PANEL
+                SIGN_IN
               </Link>
-              <button 
-                onClick={handleSignOut}
-                className="text-accent hover:underline"
-              >
-                LOG_OUT
-              </button>
-            </div>
-          ) : (
-            <Link 
-              to="/auth" 
-              className="text-ink underline decoration-2 underline-offset-8"
-            >
-              SIGN_IN
-            </Link>
-          )}
+            )}
+          </div>
+
+          <div className="flex items-center gap-4 text-ink/60">
+            {settings?.whatsapp_support && (
+              <a href={`https://wa.me/${settings.whatsapp_support.replace(/\s+/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-emerald-500 transition-colors">
+                <MessageCircle size={18} />
+              </a>
+            )}
+            {settings?.instagram_url && (
+              <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                <Instagram size={18} />
+              </a>
+            )}
+            {settings?.facebook_url && (
+              <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                <Facebook size={18} />
+              </a>
+            )}
+            {settings?.linkedin_url && (
+              <a href={settings.linkedin_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                <Linkedin size={18} />
+              </a>
+            )}
+            {settings?.youtube_url && (
+              <a href={settings.youtube_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                <Youtube size={18} />
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Mobile Toggle */}
@@ -75,6 +105,35 @@ export default function Navbar({ profile, settings }: { profile: Profile | null;
             ) : (
               <Link to="/auth" onClick={() => setIsMenuOpen(false)} className="underline decoration-2 underline-offset-8">SIGN_IN</Link>
             )}
+
+            {/* Redes Sociales en Móvil */}
+            <div className="flex items-center gap-6 pt-12 border-t-2 border-ink/10 text-ink/60">
+              {settings?.whatsapp_support && (
+                <a href={`https://wa.me/${settings.whatsapp_support.replace(/\s+/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-emerald-500 transition-colors">
+                  <MessageCircle size={24} />
+                </a>
+              )}
+              {settings?.instagram_url && (
+                <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                  <Instagram size={24} />
+                </a>
+              )}
+              {settings?.facebook_url && (
+                <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                  <Facebook size={24} />
+                </a>
+              )}
+              {settings?.linkedin_url && (
+                <a href={settings.linkedin_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                  <Linkedin size={24} />
+                </a>
+              )}
+              {settings?.youtube_url && (
+                <a href={settings.youtube_url} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                  <Youtube size={24} />
+                </a>
+              )}
+            </div>
           </div>
         </div>
       )}

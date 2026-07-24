@@ -10,6 +10,7 @@ import Auth from './pages/Auth';
 import ConfirmEmail from './pages/ConfirmEmail';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import WhatsAppButton from './components/WhatsAppButton';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -146,6 +147,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <WhatsAppButton />
     </div>
   );
 }
